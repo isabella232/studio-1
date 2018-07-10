@@ -5,6 +5,7 @@ from . import model, logs
 from .local_worker import worker_loop
 from .pubsub_queue import PubsubQueue
 from .sqs_queue import SQSQueue
+from .azure_queue import AzureQueue
 from .rabbit_queue import RMQueue
 
 from .qclient_cache import get_cached_queue
@@ -60,6 +61,10 @@ def main(args=sys.argv):
             config=config,
             logger=logger,
             verbose=verbose)
+    elif parsed_args.queue.startswith('azure_'):
+        queue = AzureQueue(parsed_args.queue,
+                           parsed_args.config["storage"]["account_name"],
+                           parsed_args.config["storage"]["account_key"])
     else:
         queue = PubsubQueue(parsed_args.queue, verbose=verbose)
 

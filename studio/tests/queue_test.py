@@ -6,8 +6,8 @@ import time
 from studio.pubsub_queue import PubsubQueue
 from studio.sqs_queue import SQSQueue
 from studio.local_queue import LocalQueue, get_local_queue_lock
-
-from studio.util import has_aws_credentials
+from studio.azure_queue import AzureQueue
+from studio.util import has_aws_credentials, has_azure_credentials
 from studio import logs
 
 
@@ -163,6 +163,18 @@ class SQSQueueTest(DistributedQueueTest, unittest.TestCase):
         return SQSQueue(
             'sqs_queue_test_' + str(uuid.uuid4()) if not name else name)
 
+@unittest.skipIf(
+    not has_azure_credentials(),
+    "Azure credentials is not present, cannot use AzureQueue")
+class AzureQueueTest(DistributedQueueTest, unittest.TestCase):
+    _multiprocess_shared_ = True
+
+    def get_queue(self, name=None, account_name=None, account_key=None):
+        name = 'sqs_queue_test_' + str(uuid.uuid4()) if not name else name
+        return AzureQueue(
+            name,
+            account_name,
+            account_key)
 
 if __name__ == '__main__':
     unittest.main()

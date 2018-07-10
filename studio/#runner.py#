@@ -511,9 +511,9 @@ def get_queue(
             logger=logger,
             verbose=verbose)
     elif queue_name.startswith('azure_'):
-        return AzureQueue(queue_name, 
-            config["storage"]["account_name"], 
-            config["storage"]["account_key"])
+        return AzureQueue(queue_name,
+                          
+        )
     elif queue_name == 'local':
         return LocalQueue(verbose=verbose)
     else:
