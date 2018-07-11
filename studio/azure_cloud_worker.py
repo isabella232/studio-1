@@ -20,52 +20,10 @@ from .gpu_util import memstr2int
 from .cloud_worker_util import insert_user_startup_script
 
 # list of instance types sorted by price
-_instance_specs = {
-    'c4.large': {
-        'cpus': 2,
-        'ram': '3.75g',
-        'gpus': 0
-    },
+from azure.storage.file import FileService
+import azure.mgmt.batchai.models as models
 
-    'c4.xlarge': {
-        'cpus': 4,
-        'ram': '7.5g',
-        'gpus': 0
-    },
-    'c4.2xlarge': {
-        'cpus': 8,
-        'ram': '15g',
-        'gpus': 0
-    },
-    'c4.4xlarge': {
-        'cpus': 16,
-        'ram': '30g',
-        'gpus': 0
-    },
-    'p2.xlarge': {
-        'cpus': 4,
-        'ram': '61g',
-        'gpus': 1
-    },
-    'c4.8xlarge': {
-        'cpus': 36,
-        'ram': '60g',
-        'gpus': 0
-    },
-    'p2.8xlarge': {
-        'cpus': 32,
-        'ram': '488g',
-        'gpus': 8
-    },
-    'p2.16xlarge': {
-        'cpus': 64,
-        'ram': '732g',
-        'gpus': 16
-    }
-}
-
-
-class EC2WorkerManager(object):
+class AzureWorkerManager(object):
 
     def __init__(self, auth_cookie=None, verbose=10, branch=None,
                  user_startup_script=None):
@@ -73,6 +31,39 @@ class EC2WorkerManager(object):
             os.path.dirname(__file__),
             'scripts/ec2_worker_startup.sh')
 
+    def _generate_cluster(self):
+        # update documents to include an example configuration file as well as
+        # include missing information they will need to provide
+        cfg = utilities.Configuration('azure_cluster_configuration.json')
+        client = utilities.create_batchai_client(cfg)
+
+        utilities.create_resource_group(cfg)
+        _ = client.workspaces.create(cfg.resource_group, cfg.workspace, cfg.location).result()
+
+        azure_file_share_name = 'batchaisample'
+        model_dir = 'modeldirectory'
+        service = FileService(cfg.storage_account_name, cfg.storage_account_key)
+        service.create_share(azure_file_share_name, fail_on_exist=False)
+
+        service = FileService(cfg.storage_account_name, cfg.storage_account_key)
+        service.create_directory(
+            azure_file_share_name, model_dir, fail_on_exist=False)
+
+        nodes_count = 1
+        cluster_name = 'nc6'
+
+        parameters = models.ClusterCreateParameters(
+            location=cfg.location,
+            vm_size='STANDARD_NC6',
+            scale_settings=models.ScaleSettings(
+                manual=models.ManualScaleSettings(target_node_count=nodes_count)
+            ),
+            user_account_settings=models.UserAccountSettings(
+                admin_user_name=cfg.admin,
+                admin_user_password=cfg.admin_password or None,
+                admin_user_ssh_public_key=cfg.admin_ssh_key or None,
+            )
+        )
         self.install_studio_script = os.path.join(
             os.path.dirname(__file__),
             'scripts/install_studio.sh')
