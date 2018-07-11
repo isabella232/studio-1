@@ -11,6 +11,13 @@ from .util import retry
 from . import logs
 
 
+def ensure_received(get_messages, name):
+    response = get_messages(name)
+    while len(response) == 0:
+        response = get_messages(name)
+    return response
+
+
 class AzureQueue(object):
 
     def __init__(self, name, account_name, account_key, verbose=10, receive_timeout=300,
@@ -34,6 +41,9 @@ class AzureQueue(object):
         self._receive_timeout = receive_timeout
         self._retry_time = retry_time
 
+    def __len__(self):
+
+
     def get_name(self):
         return self._name
 
@@ -50,17 +60,21 @@ class AzureQueue(object):
 
 
     def get_all_messages(self):
-        seen_ids = []
-        messages = []
-        not_all = True
-        while not_all:
-            message = self._client.get_messages(self._name)
-            message = message[0]
-            if message.id in seen_ids:
-                not_all = False
-                break
-            messages.append(message)
-        return messages
+        metadata = queue_service.get_queue_metadata(self._name) 
+        count = metadata.approximate_message_count
+        return [ensure_received(self._client.get_messages, self._name) for _ in range(count)]
+        # TODO: throw away below code once tests have been written and we are sure this works
+        # seen_ids = []
+        # messages = []
+        # not_all = True
+        # while not_all:
+        #     message = self._client.get_messages(self._name)
+        #     message = message[0]
+        #     if message.id in seen_ids:
+        #         not_all = False
+        #         break
+        #     messages.append(message)
+        # return messages
 
 
     def has_next(self):
